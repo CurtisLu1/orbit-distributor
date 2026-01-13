@@ -13,8 +13,8 @@ export interface DistributorWithStats {
 
 export const adminApi = {
   listDistributors: async (adminKey: string) => {
-    const res = await api.get('/admin/distributors', {
-      data: { admin_key: adminKey },
+    const res = await api.post('/admin/distributors/list', {
+      admin_key: adminKey,
     });
     return res.data;
   },
