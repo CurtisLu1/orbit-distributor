@@ -219,6 +219,7 @@ function GenerateCodesModal({ adminKey, onClose }: GenerateCodesModalProps) {
               className="w-full border rounded px-3 py-2"
             >
               <option value="monthly">月度会员</option>
+              <option value="quarterly">季度会员</option>
               <option value="yearly">年度会员</option>
               <option value="lifetime">终身会员</option>
             </select>
