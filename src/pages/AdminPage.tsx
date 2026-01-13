@@ -59,6 +59,7 @@ function DistributorTable({ distributors, adminKey, onRefresh }: TableProps) {
           <tr>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">名称</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">邮箱</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">前缀</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">佣金</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">生成/兑换</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
@@ -70,6 +71,7 @@ function DistributorTable({ distributors, adminKey, onRefresh }: TableProps) {
             <tr key={d.id}>
               <td className="px-6 py-4 text-sm">{d.name}</td>
               <td className="px-6 py-4 text-sm">{d.email}</td>
+              <td className="px-6 py-4 text-sm font-mono">{d.code_prefix || '-'}</td>
               <td className="px-6 py-4 text-sm">{d.commission_rate}%</td>
               <td className="px-6 py-4 text-sm">{d.total_generated}/{d.total_redeemed}</td>
               <td className="px-6 py-4">
@@ -104,6 +106,7 @@ function CreateDistributorModal({ adminKey, onClose, onCreated }: ModalProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rate, setRate] = useState(70);
+  const [codePrefix, setCodePrefix] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -111,7 +114,7 @@ function CreateDistributorModal({ adminKey, onClose, onCreated }: ModalProps) {
     setLoading(true);
     try {
       const res = await adminApi.createDistributor(adminKey, {
-        name, email, password, commission_rate: rate
+        name, email, password, commission_rate: rate, code_prefix: codePrefix || undefined
       });
       if (res.success) onCreated();
     } finally {
@@ -148,6 +151,16 @@ function CreateDistributorModal({ adminKey, onClose, onCreated }: ModalProps) {
             required
           />
           <div>
+            <label className="block text-sm text-gray-600 mb-1">兑换码前缀 (可选)</label>
+            <input
+              value={codePrefix}
+              onChange={(e) => setCodePrefix(e.target.value.toUpperCase())}
+              placeholder="如: BN, ADMIN"
+              className="w-full border rounded px-3 py-2 font-mono"
+              maxLength={20}
+            />
+          </div>
+          <div>
             <label className="block text-sm text-gray-600 mb-1">佣金比例 (%)</label>
             <input
               type="number"
@@ -181,6 +194,7 @@ interface GenerateCodesModalProps {
 function GenerateCodesModal({ adminKey, onClose }: GenerateCodesModalProps) {
   const [codeType, setCodeType] = useState('monthly');
   const [count, setCount] = useState(10);
+  const [prefix, setPrefix] = useState('');
   const [loading, setLoading] = useState(false);
   const [codes, setCodes] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
@@ -189,7 +203,7 @@ function GenerateCodesModal({ adminKey, onClose }: GenerateCodesModalProps) {
     setLoading(true);
     setCopied(false);
     try {
-      const res = await adminApi.generateCodes(adminKey, codeType, count);
+      const res = await adminApi.generateCodes(adminKey, codeType, count, prefix || undefined);
       if (res.success) {
         setCodes(res.codes || []);
       }
@@ -223,6 +237,16 @@ function GenerateCodesModal({ adminKey, onClose }: GenerateCodesModalProps) {
               <option value="yearly">年度会员</option>
               <option value="lifetime">终身会员</option>
             </select>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">兑换码前缀 (可选)</label>
+            <input
+              value={prefix}
+              onChange={(e) => setPrefix(e.target.value.toUpperCase())}
+              placeholder="如: ADMIN, PROMO"
+              className="w-full border rounded px-3 py-2 font-mono"
+              maxLength={20}
+            />
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-1">生成数量</label>

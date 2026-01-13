@@ -4,6 +4,7 @@ export interface DistributorWithStats {
   id: string;
   name: string;
   email: string;
+  code_prefix?: string;
   commission_rate: number;
   is_active: boolean;
   created_at: string;
@@ -12,11 +13,12 @@ export interface DistributorWithStats {
 }
 
 export const adminApi = {
-  generateCodes: async (adminKey: string, codeType: string, count: number) => {
+  generateCodes: async (adminKey: string, codeType: string, count: number, prefix?: string) => {
     const res = await api.post('/admin/codes/generate', {
       admin_key: adminKey,
       type: codeType,
       count,
+      prefix,
     });
     return res.data;
   },
@@ -30,7 +32,7 @@ export const adminApi = {
 
   createDistributor: async (
     adminKey: string,
-    data: { name: string; email: string; password: string; commission_rate: number }
+    data: { name: string; email: string; password: string; commission_rate: number; code_prefix?: string }
   ) => {
     const res = await api.post('/admin/distributors', {
       admin_key: adminKey,
