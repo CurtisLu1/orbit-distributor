@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { adminApi, type DistributorWithStats } from '../api/admin';
 
 interface AdminLoginProps {
@@ -194,7 +194,7 @@ interface GenerateCodesModalProps {
 function GenerateCodesModal({ adminKey, onClose }: GenerateCodesModalProps) {
   const [codeType, setCodeType] = useState('monthly');
   const [count, setCount] = useState(10);
-  const [prefix, setPrefix] = useState('');
+  const [prefix, setPrefix] = useState('ADMIN');
   const [loading, setLoading] = useState(false);
   const [codes, setCodes] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
@@ -300,9 +300,141 @@ function GenerateCodesModal({ adminKey, onClose }: GenerateCodesModalProps) {
   );
 }
 
+interface BatchHistoryModalProps {
+  adminKey: string;
+  onClose: () => void;
+}
+
+interface Batch {
+  batch_id: string;
+  type: string;
+  total_count: number;
+  redeemed_count: number;
+  created_at: string;
+}
+
+interface Code {
+  id: string;
+  code: string;
+  type: string;
+  redeemedAt: string | null;
+}
+
+function BatchHistoryModal({ adminKey, onClose }: BatchHistoryModalProps) {
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
+  const [codes, setCodes] = useState<Code[]>([]);
+  const [codesLoading, setCodesLoading] = useState(false);
+
+  useEffect(() => {
+    loadBatches();
+  }, []);
+
+  const loadBatches = async () => {
+    setLoading(true);
+    try {
+      const res = await adminApi.listBatches(adminKey);
+      if (res.success) {
+        setBatches(res.batches || []);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadCodes = async (batchId: string) => {
+    setCodesLoading(true);
+    setSelectedBatch(batchId);
+    try {
+      const res = await adminApi.getBatchCodes(adminKey, batchId);
+      if (res.success) {
+        setCodes(res.codes || []);
+      }
+    } finally {
+      setCodesLoading(false);
+    }
+  };
+
+  const typeLabels: Record<string, string> = {
+    monthly: '月度',
+    quarterly: '季度',
+    yearly: '年度',
+    lifetime: '终身',
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+      <div className="bg-white p-6 rounded-lg w-full max-w-4xl max-h-[80vh] flex flex-col">
+        <h2 className="text-lg font-semibold mb-4">批次历史</h2>
+
+        {loading ? (
+          <div className="text-center py-8 text-gray-500">加载中...</div>
+        ) : batches.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">暂无批次记录</div>
+        ) : (
+          <div className="flex-1 overflow-hidden flex gap-4">
+            <div className="w-1/2 overflow-y-auto">
+              <div className="space-y-2">
+                {batches.map((batch) => (
+                  <div
+                    key={batch.batch_id}
+                    onClick={() => loadCodes(batch.batch_id)}
+                    className={`p-3 rounded border cursor-pointer hover:bg-gray-50 ${
+                      selectedBatch === batch.batch_id ? 'border-blue-500 bg-blue-50' : ''
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">{typeLabels[batch.type] || batch.type}会员</span>
+                      <span className="text-sm text-gray-500">
+                        {batch.redeemed_count}/{batch.total_count} 已兑换
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">
+                      {new Date(batch.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="w-1/2 overflow-y-auto bg-gray-50 rounded p-3">
+              {!selectedBatch ? (
+                <div className="text-center text-gray-500 py-8">选择批次查看兑换码</div>
+              ) : codesLoading ? (
+                <div className="text-center text-gray-500 py-8">加载中...</div>
+              ) : (
+                <div className="space-y-1 font-mono text-sm">
+                  {codes.map((code) => (
+                    <div
+                      key={code.id}
+                      className={`py-1 px-2 rounded ${code.redeemedAt ? 'bg-green-100 text-green-800' : ''}`}
+                    >
+                      {code.code}
+                      {code.redeemedAt && <span className="ml-2 text-xs">(已兑换)</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={onClose}
+          className="mt-4 w-full border py-2 rounded hover:bg-gray-50"
+        >
+          关闭
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AdminDashboard({ adminKey, distributors, onRefresh }: AdminDashboardProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [showGenerate, setShowGenerate] = useState(false);
+  const [showBatches, setShowBatches] = useState(false);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -310,6 +442,12 @@ function AdminDashboard({ adminKey, distributors, onRefresh }: AdminDashboardPro
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-xl font-bold">Orbit 管理后台</h1>
           <div className="flex gap-2">
+            <button
+              onClick={() => setShowBatches(true)}
+              className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
+            >
+              批次历史
+            </button>
             <button
               onClick={() => setShowGenerate(true)}
               className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
@@ -346,6 +484,13 @@ function AdminDashboard({ adminKey, distributors, onRefresh }: AdminDashboardPro
         <GenerateCodesModal
           adminKey={adminKey}
           onClose={() => setShowGenerate(false)}
+        />
+      )}
+
+      {showBatches && (
+        <BatchHistoryModal
+          adminKey={adminKey}
+          onClose={() => setShowBatches(false)}
         />
       )}
     </div>

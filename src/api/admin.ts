@@ -58,4 +58,19 @@ export const adminApi = {
     });
     return res.data;
   },
+
+  listBatches: async (adminKey: string) => {
+    const res = await api.post('/admin/batches', {
+      admin_key: adminKey,
+    });
+    return res.data;
+  },
+
+  getBatchCodes: async (adminKey: string, batchId: string) => {
+    const res = await api.post('/admin/batches/codes', {
+      admin_key: adminKey,
+      batch_id: batchId,
+    });
+    return res.data;
+  },
 };
