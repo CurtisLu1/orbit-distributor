@@ -431,10 +431,145 @@ function BatchHistoryModal({ adminKey, onClose }: BatchHistoryModalProps) {
   );
 }
 
+interface DistributorStatsModalProps {
+  adminKey: string;
+  onClose: () => void;
+}
+
+interface DistributorStat {
+  id: string;
+  name: string;
+  code_prefix: string | null;
+  total_generated: number;
+  total_redeemed: number;
+  pending_settlement: number;
+}
+
+function DistributorStatsModal({ adminKey, onClose }: DistributorStatsModalProps) {
+  const [period, setPeriod] = useState('this_month');
+  const [stats, setStats] = useState<DistributorStat[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const getDateRange = (p: string) => {
+    const now = new Date();
+    let start: Date, end: Date;
+
+    switch (p) {
+      case 'this_month':
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        break;
+      case 'last_month':
+        start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        end = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'this_quarter':
+        const q = Math.floor(now.getMonth() / 3);
+        start = new Date(now.getFullYear(), q * 3, 1);
+        end = new Date(now.getFullYear(), q * 3 + 3, 1);
+        break;
+      case 'this_year':
+        start = new Date(now.getFullYear(), 0, 1);
+        end = new Date(now.getFullYear() + 1, 0, 1);
+        break;
+      default:
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    }
+    return { start: start.toISOString(), end: end.toISOString() };
+  };
+
+  const loadStats = async () => {
+    setLoading(true);
+    try {
+      const { start, end } = getDateRange(period);
+      const res = await adminApi.getDistributorsStats(adminKey, start, end);
+      if (res.success) {
+        setStats(res.stats || []);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadStats();
+  }, [period]);
+
+  const periodLabels: Record<string, string> = {
+    this_month: '本月',
+    last_month: '上月',
+    this_quarter: '本季度',
+    this_year: '本年',
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+      <div className="bg-white p-6 rounded-lg w-full max-w-3xl max-h-[80vh] flex flex-col">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold">分销商统计</h2>
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value)}
+            className="border rounded px-3 py-1"
+          >
+            {Object.entries(periodLabels).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
+        </div>
+
+        {loading ? (
+          <div className="text-center py-8 text-gray-500">加载中...</div>
+        ) : (
+          <div className="flex-1 overflow-y-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">分销商</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">前缀</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">生成</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">已兑换</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">待结算</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">兑换率</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {stats.map((s) => (
+                  <tr key={s.id}>
+                    <td className="px-4 py-2 text-sm">{s.name}</td>
+                    <td className="px-4 py-2 text-sm font-mono">{s.code_prefix || '-'}</td>
+                    <td className="px-4 py-2 text-sm text-right">{s.total_generated}</td>
+                    <td className="px-4 py-2 text-sm text-right">{s.total_redeemed}</td>
+                    <td className="px-4 py-2 text-sm text-right">{s.pending_settlement}</td>
+                    <td className="px-4 py-2 text-sm text-right">
+                      {s.total_generated > 0
+                        ? `${((s.total_redeemed / s.total_generated) * 100).toFixed(1)}%`
+                        : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <button
+          onClick={onClose}
+          className="mt-4 w-full border py-2 rounded hover:bg-gray-50"
+        >
+          关闭
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AdminDashboard({ adminKey, distributors, onRefresh }: AdminDashboardProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [showGenerate, setShowGenerate] = useState(false);
   const [showBatches, setShowBatches] = useState(false);
+  const [showStats, setShowStats] = useState(false);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -442,6 +577,12 @@ function AdminDashboard({ adminKey, distributors, onRefresh }: AdminDashboardPro
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-xl font-bold">Orbit 管理后台</h1>
           <div className="flex gap-2">
+            <button
+              onClick={() => setShowStats(true)}
+              className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
+            >
+              分销统计
+            </button>
             <button
               onClick={() => setShowBatches(true)}
               className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
@@ -491,6 +632,13 @@ function AdminDashboard({ adminKey, distributors, onRefresh }: AdminDashboardPro
         <BatchHistoryModal
           adminKey={adminKey}
           onClose={() => setShowBatches(false)}
+        />
+      )}
+
+      {showStats && (
+        <DistributorStatsModal
+          adminKey={adminKey}
+          onClose={() => setShowStats(false)}
         />
       )}
     </div>

@@ -73,4 +73,13 @@ export const adminApi = {
     });
     return res.data;
   },
+
+  getDistributorsStats: async (adminKey: string, startDate: string, endDate: string) => {
+    const res = await api.post('/admin/stats/distributors', {
+      admin_key: adminKey,
+      start_date: startDate,
+      end_date: endDate,
+    });
+    return res.data;
+  },
 };
