@@ -147,13 +147,18 @@ function CreateDistributorModal({ adminKey, onClose, onCreated }: ModalProps) {
             className="w-full border rounded px-3 py-2"
             required
           />
-          <input
-            type="number"
-            value={rate}
-            onChange={(e) => setRate(Number(e.target.value))}
-            placeholder="佣金比例"
-            className="w-full border rounded px-3 py-2"
-          />
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">佣金比例 (%)</label>
+            <input
+              type="number"
+              value={rate}
+              onChange={(e) => setRate(Number(e.target.value))}
+              placeholder="佣金比例"
+              className="w-full border rounded px-3 py-2"
+              min={0}
+              max={100}
+            />
+          </div>
           <div className="flex gap-2">
             <button type="button" onClick={onClose} className="flex-1 border py-2 rounded">
               取消
@@ -168,20 +173,131 @@ function CreateDistributorModal({ adminKey, onClose, onCreated }: ModalProps) {
   );
 }
 
+interface GenerateCodesModalProps {
+  adminKey: string;
+  onClose: () => void;
+}
+
+function GenerateCodesModal({ adminKey, onClose }: GenerateCodesModalProps) {
+  const [codeType, setCodeType] = useState('monthly');
+  const [count, setCount] = useState(10);
+  const [loading, setLoading] = useState(false);
+  const [codes, setCodes] = useState<string[]>([]);
+  const [copied, setCopied] = useState(false);
+
+  const handleGenerate = async () => {
+    setLoading(true);
+    setCopied(false);
+    try {
+      const res = await adminApi.generateCodes(adminKey, codeType, count);
+      if (res.success) {
+        setCodes(res.codes || []);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopyAll = async () => {
+    const text = codes.join('\n');
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+      <div className="bg-white p-6 rounded-lg w-full max-w-lg max-h-[80vh] flex flex-col">
+        <h2 className="text-lg font-semibold mb-4">批量生成兑换码</h2>
+
+        <div className="space-y-4 mb-4">
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">会员类型</label>
+            <select
+              value={codeType}
+              onChange={(e) => setCodeType(e.target.value)}
+              className="w-full border rounded px-3 py-2"
+            >
+              <option value="monthly">月度会员</option>
+              <option value="yearly">年度会员</option>
+              <option value="lifetime">终身会员</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">生成数量</label>
+            <input
+              type="number"
+              value={count}
+              onChange={(e) => setCount(Number(e.target.value))}
+              min={1}
+              max={100}
+              className="w-full border rounded px-3 py-2"
+            />
+          </div>
+          <button
+            onClick={handleGenerate}
+            disabled={loading}
+            className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50"
+          >
+            {loading ? '生成中...' : '生成兑换码'}
+          </button>
+        </div>
+
+        {codes.length > 0 && (
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-gray-600">已生成 {codes.length} 个兑换码</span>
+              <button
+                onClick={handleCopyAll}
+                className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+              >
+                {copied ? '已复制!' : '复制全部'}
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto bg-gray-50 rounded p-2 font-mono text-sm">
+              {codes.map((code, i) => (
+                <div key={i} className="py-1 border-b border-gray-200 last:border-0">
+                  {code}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={onClose}
+          className="mt-4 w-full border py-2 rounded hover:bg-gray-50"
+        >
+          关闭
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AdminDashboard({ adminKey, distributors, onRefresh }: AdminDashboardProps) {
   const [showCreate, setShowCreate] = useState(false);
+  const [showGenerate, setShowGenerate] = useState(false);
 
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-xl font-bold">Orbit 管理后台</h1>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          >
-            添加分销商
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowGenerate(true)}
+              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+            >
+              生成兑换码
+            </button>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            >
+              添加分销商
+            </button>
+          </div>
         </div>
       </header>
 
@@ -198,6 +314,13 @@ function AdminDashboard({ adminKey, distributors, onRefresh }: AdminDashboardPro
           adminKey={adminKey}
           onClose={() => setShowCreate(false)}
           onCreated={() => { setShowCreate(false); onRefresh(); }}
+        />
+      )}
+
+      {showGenerate && (
+        <GenerateCodesModal
+          adminKey={adminKey}
+          onClose={() => setShowGenerate(false)}
         />
       )}
     </div>

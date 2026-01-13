@@ -12,6 +12,15 @@ export interface DistributorWithStats {
 }
 
 export const adminApi = {
+  generateCodes: async (adminKey: string, codeType: string, count: number) => {
+    const res = await api.post('/admin/codes/generate', {
+      admin_key: adminKey,
+      type: codeType,
+      count,
+    });
+    return res.data;
+  },
+
   listDistributors: async (adminKey: string) => {
     const res = await api.post('/admin/distributors/list', {
       admin_key: adminKey,
